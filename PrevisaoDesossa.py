@@ -71,7 +71,7 @@ def main():
                         worksheet = sh.worksheet("Suinos")
                         
                         # Prepara a linha (Data formatada + Peso Total + Pesos de cada corte)
-                        data_atual = pd.Timestamp.now().strftime("%d/%m/%Y %H:%M:%S")
+                        data_atual = pd.Timestamp.now().strftime("%d/%m/%Y")
                         pesos_cortes = [round(peso_carcaca * p, 2) for p in PERCENTUAIS_SUINO.values()]
                         nova_linha = [data_atual, peso_carcaca] + pesos_cortes
                         
