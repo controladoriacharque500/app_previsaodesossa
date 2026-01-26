@@ -17,9 +17,9 @@ def conectar_google_drive(PLANILHA_NOME):
           return gspread.service_account_from_dict(secrets_dict)
       else:
         return gspread.service_account(filename=CREDENTIALS_PATH)
-    except Exception as e:
-        st.error(f"Erro na conexão: {e}")
-        return None
+  except Exception as e:
+    st.error(f"Erro na conexão: {e}")
+    return None
     
 
 # --- PERCENTUAIS DE REFERÊNCIA (BASEADO NA CONVERSA ANTERIOR) ---
