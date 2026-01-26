@@ -3,7 +3,7 @@ import pandas as pd
 from gspread_pandas import Spread, Client
 
 # --- CONFIGURAÇÃO DA API (MESMA LINHA DO SEU PROJETO ANTERIOR) ---
-PLANILHA_NOME = "Mapa_de_Pedidos2" 
+PLANILHA_NOME = "Dados_Desossa" 
 # Certifique-se de ter o arquivo 'google_secret.json' no diretório ou as credenciais configuradas
 def conectar_google_drive(PLANILHA_NOME):
   try:
