@@ -73,11 +73,16 @@ def main():
                     # --- ABA DE TOTAIS (RESUMO) ---
                     st.subheader("📦 Saldo Total Acumulado (Soma de todos os cortes)")
                     
-                    # Seleciona apenas as colunas numéricas de cortes para somar
-                    # Ignoramos 'Data' e 'Peso_Total' para somar apenas os cortes individuais
+                    # Seleciona as colunas de cortes (da terceira em diante)
                     colunas_cortes = df.columns[2:] 
                     totais = df[colunas_cortes].sum().reset_index()
-                    totais.columns = ["Corte", "Total Acumulado (kg)"]
+                    totais.columns = ["Corte", "Total_Acumulado"] # Nome limpo para a coluna
+                    
+                    # Exibe os totais em colunas (estilo dashboard)
+                    cols = st.columns(4)
+                    for i, row in totais.iterrows():
+                        # Aqui estava o erro! Agora usamos 'Total_Acumulado'
+                        cols[i % 4].metric(row['Corte'], f"{row['Total_Acumulado']:.2f} kg")
                     
                     # Exibe os totais em colunas (estilo dashboard)
                     cols = st.columns(4)
