@@ -1,28 +1,30 @@
 import streamlit as st
 import pandas as pd
-from gspread_pandas import Spread, Client
+import gspread # Importação correta para o gspread
 
-# --- CONFIGURAÇÃO DA API (MESMA LINHA DO SEU PROJETO ANTERIOR) ---
+# --- CONFIGURAÇÃO DA API ---
 PLANILHA_NOME = "Dados_Desossa" 
-# Certifique-se de ter o arquivo 'google_secret.json' no diretório ou as credenciais configuradas
-def conectar_google_drive(PLANILHA_NOME):
-  try:
-      if "gcp_service_account" in st.secrets:
-          secrets_dict = dict(st.secrets["gcp_service_account"])
-          pk = secrets_dict["private_key"].replace('\n', '').replace(' ', '')
-          pk = pk.replace('-----BEGINPRIVATEKEY-----', '').replace('-----ENDPRIVATEKEY-----', '')
-          padding = len(pk) % 4
-          if padding != 0: pk += '=' * (4 - padding)
-          secrets_dict["private_key"] = f"-----BEGIN PRIVATE KEY-----\n{pk}\n-----END PRIVATE KEY-----\n"
-          return gspread.service_account_from_dict(secrets_dict)
-      else:
-        return gspread.service_account(filename=CREDENTIALS_PATH)
-  except Exception as e:
-    st.error(f"Erro na conexão: {e}")
-    return None
-    
 
-# --- PERCENTUAIS DE REFERÊNCIA (BASEADO NA CONVERSA ANTERIOR) ---
+def conectar_google_drive():
+    try:
+        # Se estiver no Streamlit Cloud usando Secrets
+        if "gcp_service_account" in st.secrets:
+            secrets_dict = dict(st.secrets["gcp_service_account"])
+            # Limpeza da chave privada (ajuste comum para o Streamlit Cloud)
+            if "-----BEGIN PRIVATE KEY-----" not in secrets_dict["private_key"]:
+                pk = secrets_dict["private_key"].replace('\\n', '\n')
+                secrets_dict["private_key"] = pk
+            
+            client = gspread.service_account_from_dict(secrets_dict)
+            return client
+        else:
+            # Caso esteja rodando localmente com o arquivo JSON
+            return gspread.service_account(filename="google_secret.json")
+    except Exception as e:
+        st.error(f"Erro na conexão com o Google Drive: {e}")
+        return None
+
+# --- PERCENTUAIS DE REFERÊNCIA ---
 PERCENTUAIS_SUINO = {
     "Pernil": 0.26,
     "Paleta": 0.15,
@@ -35,15 +37,14 @@ PERCENTUAIS_SUINO = {
 }
 
 def main():
+    st.set_page_config(page_title="Apuração de Desossa", layout="wide")
     st.title("🥩 Sistema de Apuração de Desossa")
 
-    # TELA 1: SELEÇÃO DE MATÉRIA-PRIMA
     tipo_mp = st.selectbox("Escolha o tipo de matéria-prima:", ["Selecione", "Bovino", "Suíno"])
 
     if tipo_mp == "Suíno":
         st.subheader("Módulo Suíno: Projeção de Desossa")
         
-        # Entrada de dados
         peso_carcaca = st.number_input("Peso Total da Carcaça (kg):", min_value=0.0, step=0.1)
 
         if peso_carcaca > 0:
@@ -52,24 +53,38 @@ def main():
             dados_projecao = []
             for corte, perc in PERCENTUAIS_SUINO.items():
                 peso_estimado = peso_carcaca * perc
-                dados_projecao.append({"Corte": corte, "Percentual": f"{perc*100}%", "Peso Estimado (kg)": round(peso_estimado, 3)})
+                dados_projecao.append({
+                    "Corte": corte, 
+                    "Percentual": f"{int(perc*100)}%", 
+                    "Peso Estimado (kg)": round(peso_estimado, 3)
+                })
             
             df_projecao = pd.DataFrame(dados_projecao)
             st.table(df_projecao)
 
-            # Botão para salvar no Google Drive
             if st.button("Salvar Apuração no Google Drive"):
-                try:
-                    spread = conectar_google_drive("Dados_Desossa")
-                    # Prepara a linha para salvar
-                    nova_linha = [pd.Timestamp.now()] + [peso_carcaca] + [round(peso_carcaca * p, 2) for p in PERCENTUAIS_SUINO.values()]
-                    # Lógica para dar append na planilha (ajustar conforme sua função de API anterior)
-                    st.success("Dados salvos com sucesso na planilha 'Dados_Desossa'!")
-                except Exception as e:
-                    st.error(f"Erro ao conectar ao Drive: {e}")
+                gc = conectar_google_drive()
+                if gc:
+                    try:
+                        # Abre a planilha e a aba específica (crie a aba 'Suinos' na sua planilha)
+                        sh = gc.open(PLANILHA_NOME)
+                        worksheet = sh.worksheet("Suinos")
+                        
+                        # Prepara a linha (Data formatada + Peso Total + Pesos de cada corte)
+                        data_atual = pd.Timestamp.now().strftime("%d/%m/%Y %H:%M:%S")
+                        pesos_cortes = [round(peso_carcaca * p, 2) for p in PERCENTUAIS_SUINO.values()]
+                        nova_linha = [data_atual, peso_carcaca] + pesos_cortes
+                        
+                        # Adiciona a linha ao final da planilha
+                        worksheet.append_row(nova_linha)
+                        st.success(f"✅ Dados salvos com sucesso na aba 'Suinos' da planilha '{PLANILHA_NOME}'!")
+                    except gspread.exceptions.WorksheetNotFound:
+                        st.error("Erro: A aba 'Suinos' não foi encontrada na planilha.")
+                    except Exception as e:
+                        st.error(f"Erro ao salvar dados: {e}")
 
     elif tipo_mp == "Bovino":
-        st.info("Módulo Bovino em desenvolvimento. Em breve você poderá configurar os percentuais de traseiro, dianteiro e ponta de agulha.")
+        st.info("Módulo Bovino em desenvolvimento.")
 
 if __name__ == "__main__":
     main()
