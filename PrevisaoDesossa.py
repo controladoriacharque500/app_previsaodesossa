@@ -23,7 +23,7 @@ def conectar_google_drive():
 # --- PERCENTUAIS DE REFERÊNCIA (PADRÃO AMERICANO) ---
 PERCENTUAIS_SUINO = {
     "Pernil": 0.26, "Paleta": 0.15, "Lombo": 0.13, "Barriga": 0.13,
-    "Costela": 0.09, "Copa_Sob": 0.07, "Recortes": 0.12, "Miudezas": 0.05
+    "Costela": 0.09, "Copa_Sobrepaleta": 0.07, "Recortes": 0.12, "Miudezas": 0.05
 }
 
 def main():
@@ -91,7 +91,7 @@ def main():
                     st.subheader("📦 Saldo Total Acumulado (kg)")
                     
                     # Definimos as colunas de cortes baseadas no seu cabeçalho da imagem
-                    colunas_cortes = ["Pernil", "Paleta", "Lombo", "Barriga", "Costela", "Copa_Sob", "Recortes", "Miudezas"]
+                    colunas_cortes = ["Pernil", "Paleta", "Lombo", "Barriga", "Costela", "Copa_Sobrepaleta", "Recortes", "Miudezas"]
                     
                     # Soma apenas se a coluna existir no DataFrame
                     colunas_existentes = [c for c in colunas_cortes if c in df.columns]
