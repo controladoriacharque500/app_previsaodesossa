@@ -4,6 +4,8 @@ import gspread
 
 # --- CONFIGURAÇÃO DA API ---
 PLANILHA_NOME = "Dados_Desossa" 
+PLANILHA_ESTOQUE_NOME = "Estoque_industria_Analitico"
+PLANILHA_PEDIDOS_NOME = "Mapa_de_Pedidos2"
 
 def conectar_google_drive():
     try:
@@ -29,7 +31,7 @@ PERCENTUAIS_SUINO = {
 def main():
     st.set_page_config(page_title="Gestão de Desossa", layout="wide")
     
-    menu = st.sidebar.selectbox("Navegação", ["Lançar Desossa", "Consultar Histórico e Totais"])
+    menu = st.sidebar.selectbox("Navegação", ["Lançar Desossa", "Consultar Histórico e Totais", "Saldo Disponível"])
 
     if menu == "Lançar Desossa":
         st.title("🥩 Lançamento de Apuração (Padrão Decimal)")
@@ -110,6 +112,69 @@ def main():
 
             except Exception as e:
                 st.error(f"Erro ao processar dados: {e}")
-
+     elif menu == "Saldo Disponível":
+        st.title("📊 Disponibilidade de Venda (ATP)")
+        gc = conectar_google_drive()
+        
+        if gc:
+            try:
+                with st.spinner('Consolidando saldos de múltiplas fontes...'):
+                    # 1. BUSCAR PRODUÇÃO (DADOS DESOSSA)
+                    sh_desossa = gc.open(PLANILHA_NOME).worksheet("Suinos")
+                    df_desossa = pd.DataFrame(sh_desossa.get_all_records())
+                    # Limpeza padrão americano conforme alinhamos
+                    for col in df_desossa.columns[2:]:
+                        df_desossa[col] = pd.to_numeric(df_desossa[col].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
+                    total_producao = df_desossa.iloc[:, 2:].sum()
+    
+                    # 2. BUSCAR ESTOQUE FÍSICO (PRODUTO ACABADO)
+                    # Baseado no código de estoque que você enviou
+                    sh_estoque = gc.open(PLANILHA_ESTOQUE_NOME).worksheet("ESTOQUETotal")
+                    df_est = pd.DataFrame(sh_estoque.get_all_records())
+                    df_est['KG'] = pd.to_numeric(df_est['KG'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
+                    
+                    # Agrupamos o estoque físico pela coluna 'MATÉRIA-PRIMA' que já existe no seu sistema
+                    total_estoque_fisico = df_est.groupby('MATÉRIA-PRIMA')['KG'].sum()
+    
+                    # 3. BUSCAR PEDIDOS PENDENTES + DICIONÁRIO
+                    sh_pedidos = gc.open(PLANILHA_PEDIDOS_NOME)
+                    df_ped = pd.DataFrame(sh_pedidos.worksheet("pedidos").get_all_records())
+                    df_dic = pd.DataFrame(sh_pedidos.worksheet("produtos").get_all_records())
+    
+                    # Faz o Procv (Merge) entre pedidos e o dicionário para saber a qual matéria-prima o produto pertence
+                    df_ped_vinculado = pd.merge(df_ped[df_ped['status'] == 'pendente'], 
+                                                df_dic[['descricao', 'materia_prima_vinculo']], 
+                                                left_on='produto', right_on='descricao', how='left')
+                    
+                    df_ped_vinculado['peso'] = pd.to_numeric(df_ped_vinculado['peso'], errors='coerce').fillna(0)
+                    total_pedidos = df_ped_vinculado.groupby('materia_prima_vinculo')['peso'].sum()
+    
+                # 4. EXIBIÇÃO DO DASHBOARD
+                colunas_dashboard = ["Pernil", "Paleta", "Lombo", "Barriga", "Costela", "Copa_Sob", "Recortes", "Miudezas"]
+                cols = st.columns(4)
+                
+                for i, item in enumerate(colunas_dashboard):
+                    # Cálculo: (Produção Estimada + Estoque Físico) - Pedidos Pendentes
+                    v_prod = total_producao.get(item, 0.0)
+                    v_est  = total_estoque_fisico.get(item.upper(), 0.0) # Ajuste para bater Maiúsculas se necessário
+                    v_ped  = total_pedidos.get(item, 0.0)
+                    
+                    saldo_final = (v_prod + v_est) - v_ped
+                    
+                    cor_metrica = "normal" if saldo_final > 0 else "inverse"
+                    
+                    with cols[i % 4]:
+                        st.metric(f"📦 {item}", f"{saldo_final:,.2f} kg".replace(',', 'X').replace('.', ',').replace('X', '.'), 
+                                  delta=f"Disponível", delta_color=cor_metrica)
+                        
+                        # Detalhes expansíveis para conferência
+                        with st.expander("Ver composição"):
+                            st.write(f"➕ Produção: {v_prod:,.2f} kg")
+                            st.write(f"➕ Est. Físico: {v_est:,.2f} kg")
+                            st.write(f"➖ Pedidos: {v_ped:,.2f} kg")
+    
+            except Exception as e:
+                st.error(f"Erro ao cruzar dados: {e}")
+            
 if __name__ == "__main__":
     main()
