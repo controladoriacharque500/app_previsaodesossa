@@ -5,7 +5,7 @@ import gspread
 # --- CONFIGURAÇÃO DA API ---
 PLANILHA_NOME = "Dados_Desossa" 
 PLANILHA_ESTOQUE_NOME = "Estoque_industria_Analitico"
-PLANILHA_PEDIDOS_NOME = "Mapa_de_Pedidos2" # Planilha de teste conforme sua observação
+PLANILHA_PEDIDOS_NOME = "Mapa_de_Pedidos2"
 
 def conectar_google_drive():
     try:
@@ -31,6 +31,7 @@ def main():
     st.set_page_config(page_title="Gestão de Desossa", layout="wide")
     menu = st.sidebar.selectbox("Navegação", ["Lançar Desossa", "Consultar Histórico e Totais", "Saldo Disponível"])
 
+    # --- ABA: LANÇAR DESOSSA ---
     if menu == "Lançar Desossa":
         st.title("🥩 Lançamento de Apuração")
         tipo_mp = st.selectbox("Tipo de Matéria-Prima:", ["Selecione", "Suíno"])
@@ -53,6 +54,7 @@ def main():
                         except Exception as e:
                             st.error(f"Erro ao salvar: {e}")
 
+    # --- ABA: CONSULTAR HISTÓRICO ---
     elif menu == "Consultar Histórico e Totais":
         st.title("🔍 Consulta e Saldo de Estoque")
         gc = conectar_google_drive()
@@ -78,81 +80,81 @@ def main():
             except Exception as e:
                 st.error(f"Erro ao processar dados: {e}")
 
-       elif menu == "Saldo Disponível":
-            st.title("📊 Disponibilidade de Venda (ATP)")
-            gc = conectar_google_drive()
-            if gc:
-                try:
-                    with st.spinner('Cruzando referências de produtos e saldos...'):
-                        # --- 1. BUSCAR PRODUÇÃO (DADOS DESOSSA) ---
-                        df_desossa = pd.DataFrame(gc.open(PLANILHA_NOME).worksheet("Suinos").get_all_records())
-                        for col in df_desossa.columns[2:]:
-                            df_desossa[col] = pd.to_numeric(df_desossa[col].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
-                        total_producao = df_desossa.iloc[:, 2:].sum()
-    
-                        # --- 2. BUSCAR CADASTRO DE PRODUTOS (O SEU "DE-PARA" CENTRAL) ---
-                        sh_ped = gc.open(PLANILHA_PEDIDOS_NOME)
-                        df_dic = pd.DataFrame(sh_ped.worksheet("produtos").get_all_records())
-                        # Garantimos que os nomes dos produtos para cruzamento estejam limpos
-                        df_dic['descricao'] = df_dic['descricao'].astype(str).str.strip().str.upper()
-    
-                        # --- 3. BUSCAR ESTOQUE FÍSICO E VINCULAR ---
-                        df_est_raw = pd.DataFrame(gc.open(PLANILHA_ESTOQUE_NOME).worksheet("ESTOQUETotal").get_all_records())
-                        df_est_raw['PRODUTO'] = df_est_raw['PRODUTO'].astype(str).str.strip().str.upper()
-                        df_est_raw['KG'] = pd.to_numeric(df_est_raw['KG'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
-    
-                        # Cruzamos o estoque com o dicionário de produtos para herdar a 'materia_prima_vinculo'
-                        df_est_vinculado = pd.merge(
-                            df_est_raw, 
-                            df_dic[['descricao', 'materia_prima_vinculo']], 
-                            left_on='PRODUTO', 
-                            right_on='descricao', 
-                            how='left'
-                        )
-                        # Agrupamos o estoque físico pela matéria-prima que veio do dicionário
-                        total_estoque_fisico = df_est_vinculado.groupby('materia_prima_vinculo')['KG'].sum()
-    
-                        # --- 4. BUSCAR PEDIDOS PENDENTES E VINCULAR ---
-                        df_ped = pd.DataFrame(sh_ped.worksheet("pedidos").get_all_records())
-                        df_ped['produto'] = df_ped['produto'].astype(str).str.strip().str.upper()
-                        
-                        df_pend = pd.merge(
-                            df_ped[df_ped['status'] == 'pendente'], 
-                            df_dic[['descricao', 'materia_prima_vinculo']], 
-                            left_on='produto', 
-                            right_on='descricao', 
-                            how='left'
-                        )
-                        df_pend['peso'] = pd.to_numeric(df_pend['peso'], errors='coerce').fillna(0)
-                        total_pedidos = df_pend.groupby('materia_prima_vinculo')['peso'].sum()
-    
-                    # --- 5. EXIBIÇÃO DO DASHBOARD ---
-                    colunas_dash = ["Pernil", "Paleta", "Lombo", "Barriga", "Costela", "Copa_Sob", "Recortes", "Miudezas"]
-                    cols = st.columns(4)
-                    
-                    for i, item in enumerate(colunas_dash):
-                        v_prod = total_producao.get(item, 0.0)
-                        v_est  = total_estoque_fisico.get(item, 0.0) # Agora usa o vínculo do dicionário
-                        v_ped  = total_pedidos.get(item, 0.0)
-                        
-                        saldo_final = (v_prod + v_est) - v_ped
-                        cor = "normal" if saldo_final > 0 else "inverse"
-                        
-                        with cols[i % 4]:
-                            st.metric(
-                                label=f"📦 {item}", 
-                                value=f"{saldo_final:,.2f} kg".replace(',', 'X').replace('.', ',').replace('X', '.'), 
-                                delta="Saldo Disponível", 
-                                delta_color=cor
-                            )
-                            with st.expander("Ver composição"):
-                                st.caption("Baseado no De-Para do Cadastro")
-                                st.write(f"➕ Prod. Estimada: {v_prod:,.2f} kg")
-                                st.write(f"➕ Estoque Físico: {v_est:,.2f} kg")
-                                st.write(f"➖ Pedidos Pend.: {v_ped:,.2f} kg")
-                
-                except Exception as e:
-                    st.error(f"Erro ao consolidar dados: {e}")
+    # --- ABA: SALDO DISPONÍVEL (CORRIGIDA) ---
+    elif menu == "Saldo Disponível":
+        st.title("📊 Disponibilidade de Venda (ATP)")
+        gc = conectar_google_drive()
+        if gc:
+            try:
+                with st.spinner('Cruzando referências de produtos e saldos...'):
+                    # 1. PRODUÇÃO (DADOS DESOSSA)
+                    df_desossa = pd.DataFrame(gc.open(PLANILHA_NOME).worksheet("Suinos").get_all_records())
+                    for col in df_desossa.columns[2:]:
+                        df_desossa[col] = pd.to_numeric(df_desossa[col].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
+                    total_producao = df_desossa.iloc[:, 2:].sum()
 
+                    # 2. CADASTRO DE PRODUTOS (DE-PARA CENTRAL)
+                    sh_ped = gc.open(PLANILHA_PEDIDOS_NOME)
+                    df_dic = pd.DataFrame(sh_ped.worksheet("produtos").get_all_records())
+                    # Limpeza para garantir match: Maiúsculo e sem espaços
+                    df_dic['descricao_limpa'] = df_dic['descricao'].astype(str).str.strip().str.upper()
+
+                    # 3. ESTOQUE FÍSICO + VÍNCULO
+                    df_est_raw = pd.DataFrame(gc.open(PLANILHA_ESTOQUE_NOME).worksheet("ESTOQUETotal").get_all_records())
+                    df_est_raw['PRODUTO_LIMPO'] = df_est_raw['PRODUTO'].astype(str).str.strip().str.upper()
+                    df_est_raw['KG'] = pd.to_numeric(df_est_raw['KG'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
+
+                    df_est_vinculado = pd.merge(
+                        df_est_raw, 
+                        df_dic[['descricao_limpa', 'materia_prima_vinculo']], 
+                        left_on='PRODUTO_LIMPO', 
+                        right_on='descricao_limpa', 
+                        how='left'
+                    )
+                    total_estoque_fisico = df_est_vinculado.groupby('materia_prima_vinculo')['KG'].sum()
+
+                    # 4. PEDIDOS PENDENTES + VÍNCULO
+                    df_ped = pd.DataFrame(sh_ped.worksheet("pedidos").get_all_records())
+                    df_ped['prod_limpo'] = df_ped['produto'].astype(str).str.strip().str.upper()
+                    
+                    df_pend = pd.merge(
+                        df_ped[df_ped['status'] == 'pendente'], 
+                        df_dic[['descricao_limpa', 'materia_prima_vinculo']], 
+                        left_on='prod_limpo', 
+                        right_on='descricao_limpa', 
+                        how='left'
+                    )
+                    df_pend['peso'] = pd.to_numeric(df_pend['peso'], errors='coerce').fillna(0)
+                    total_pedidos = df_pend.groupby('materia_prima_vinculo')['peso'].sum()
+
+                # 5. DASHBOARD
+                colunas_dash = ["Pernil", "Paleta", "Lombo", "Barriga", "Costela", "Copa_Sob", "Recortes", "Miudezas"]
+                cols = st.columns(4)
+                
+                for i, item in enumerate(colunas_dash):
+                    v_prod = total_producao.get(item, 0.0)
+                    v_est  = total_estoque_fisico.get(item, 0.0)
+                    v_ped  = total_pedidos.get(item, 0.0)
+                    
+                    saldo_final = (v_prod + v_est) - v_ped
+                    cor = "normal" if saldo_final > 0 else "inverse"
+                    
+                    with cols[i % 4]:
+                        st.metric(
+                            label=f"📦 {item}", 
+                            value=f"{saldo_final:,.2f} kg".replace(',', 'X').replace('.', ',').replace('X', '.'), 
+                            delta=f"Saldo ATP", 
+                            delta_color=cor
+                        )
+                        with st.expander("Detalhes"):
+                            st.write(f"Desossa: {v_prod:,.1f}kg")
+                            st.write(f"Estoque: {v_est:,.1f}kg")
+                            st.write(f"Pedidos: {v_ped:,.1f}kg")
+            
+            except Exception as e:
+                st.error(f"Erro ao consolidar dados: {e}")
+
+if __name__ == "__main__":
+    main()
 if __name__ == "__main__":
     main()
