@@ -112,6 +112,7 @@ def main():
 
             except Exception as e:
                 st.error(f"Erro ao processar dados: {e}")
+                
      elif menu == "Saldo Disponível":
         st.title("📊 Disponibilidade de Venda (ATP)")
         gc = conectar_google_drive()
