@@ -29,19 +29,24 @@ PERCENTUAIS_SUINO = {
 
 def main():
     st.set_page_config(page_title="Gestão de Desossa", layout="wide")
-    menu = st.sidebar.selectbox("Navegação", ["Lançar Desossa", "Consultar Histórico e Totais", "Saldo Disponível"])
+    
+    # Menu lateral único para evitar o erro StreamlitDuplicateElementId
+    menu = st.sidebar.selectbox(
+        "Navegação", 
+        ["Lançar Desossa", "Consultar Histórico e Totais", "Saldo Disponível"],
+        key="menu_principal"
+    )
 
-    # --- ABA: LANÇAR DESOSSA ---
     if menu == "Lançar Desossa":
         st.title("🥩 Lançamento de Apuração")
-        tipo_mp = st.selectbox("Tipo de Matéria-Prima:", ["Selecione", "Suíno"])
+        tipo_mp = st.selectbox("Tipo de Matéria-Prima:", ["Selecione", "Suíno"], key="sel_tipo_mp")
         if tipo_mp == "Suíno":
-            peso_carcaca = st.number_input("Peso Total da Carcaça (kg):", min_value=0.0, step=0.1, format="%.2f")
+            peso_carcaca = st.number_input("Peso Total da Carcaça (kg):", min_value=0.0, step=0.1, format="%.2f", key="input_peso")
             if peso_carcaca > 0:
                 st.markdown("### 📊 Projeção de Cortes")
                 dados_projecao = [{"Corte": c, "Peso (kg)": round(peso_carcaca * p, 2)} for c, p in PERCENTUAIS_SUINO.items()]
                 st.table(pd.DataFrame(dados_projecao))
-                if st.button("Salvar no Google Drive"):
+                if st.button("Salvar no Google Drive", key="btn_salvar"):
                     gc = conectar_google_drive()
                     if gc:
                         try:
@@ -54,7 +59,6 @@ def main():
                         except Exception as e:
                             st.error(f"Erro ao salvar: {e}")
 
-    # --- ABA: CONSULTAR HISTÓRICO ---
     elif menu == "Consultar Histórico e Totais":
         st.title("🔍 Consulta e Saldo de Estoque")
         gc = conectar_google_drive()
@@ -80,26 +84,24 @@ def main():
             except Exception as e:
                 st.error(f"Erro ao processar dados: {e}")
 
-    # --- ABA: SALDO DISPONÍVEL (CORRIGIDA) ---
     elif menu == "Saldo Disponível":
         st.title("📊 Disponibilidade de Venda (ATP)")
         gc = conectar_google_drive()
         if gc:
             try:
                 with st.spinner('Cruzando referências de produtos e saldos...'):
-                    # 1. PRODUÇÃO (DADOS DESOSSA)
+                    # 1. PRODUÇÃO
                     df_desossa = pd.DataFrame(gc.open(PLANILHA_NOME).worksheet("Suinos").get_all_records())
                     for col in df_desossa.columns[2:]:
                         df_desossa[col] = pd.to_numeric(df_desossa[col].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
                     total_producao = df_desossa.iloc[:, 2:].sum()
 
-                    # 2. CADASTRO DE PRODUTOS (DE-PARA CENTRAL)
+                    # 2. DICIONÁRIO / PRODUTOS
                     sh_ped = gc.open(PLANILHA_PEDIDOS_NOME)
                     df_dic = pd.DataFrame(sh_ped.worksheet("produtos").get_all_records())
-                    # Limpeza para garantir match: Maiúsculo e sem espaços
                     df_dic['descricao_limpa'] = df_dic['descricao'].astype(str).str.strip().str.upper()
 
-                    # 3. ESTOQUE FÍSICO + VÍNCULO
+                    # 3. ESTOQUE FÍSICO
                     df_est_raw = pd.DataFrame(gc.open(PLANILHA_ESTOQUE_NOME).worksheet("ESTOQUETotal").get_all_records())
                     df_est_raw['PRODUTO_LIMPO'] = df_est_raw['PRODUTO'].astype(str).str.strip().str.upper()
                     df_est_raw['KG'] = pd.to_numeric(df_est_raw['KG'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
@@ -113,10 +115,9 @@ def main():
                     )
                     total_estoque_fisico = df_est_vinculado.groupby('materia_prima_vinculo')['KG'].sum()
 
-                    # 4. PEDIDOS PENDENTES + VÍNCULO
+                    # 4. PEDIDOS
                     df_ped = pd.DataFrame(sh_ped.worksheet("pedidos").get_all_records())
                     df_ped['prod_limpo'] = df_ped['produto'].astype(str).str.strip().str.upper()
-                    
                     df_pend = pd.merge(
                         df_ped[df_ped['status'] == 'pendente'], 
                         df_dic[['descricao_limpa', 'materia_prima_vinculo']], 
@@ -127,34 +128,24 @@ def main():
                     df_pend['peso'] = pd.to_numeric(df_pend['peso'], errors='coerce').fillna(0)
                     total_pedidos = df_pend.groupby('materia_prima_vinculo')['peso'].sum()
 
-                # 5. DASHBOARD
+                # 5. EXIBIÇÃO
                 colunas_dash = ["Pernil", "Paleta", "Lombo", "Barriga", "Costela", "Copa_Sob", "Recortes", "Miudezas"]
                 cols = st.columns(4)
-                
                 for i, item in enumerate(colunas_dash):
                     v_prod = total_producao.get(item, 0.0)
                     v_est  = total_estoque_fisico.get(item, 0.0)
                     v_ped  = total_pedidos.get(item, 0.0)
-                    
                     saldo_final = (v_prod + v_est) - v_ped
-                    cor = "normal" if saldo_final > 0 else "inverse"
                     
                     with cols[i % 4]:
-                        st.metric(
-                            label=f"📦 {item}", 
-                            value=f"{saldo_final:,.2f} kg".replace(',', 'X').replace('.', ',').replace('X', '.'), 
-                            delta=f"Saldo ATP", 
-                            delta_color=cor
-                        )
-                        with st.expander("Detalhes"):
-                            st.write(f"Desossa: {v_prod:,.1f}kg")
-                            st.write(f"Estoque: {v_est:,.1f}kg")
-                            st.write(f"Pedidos: {v_ped:,.1f}kg")
+                        st.metric(item, f"{saldo_final:,.2f} kg".replace(',', 'X').replace('.', ',').replace('X', '.'))
+                        with st.expander(f"Ver Detalhes {item}", key=f"exp_{item}"):
+                            st.write(f"Produção: {v_prod:,.2f}kg")
+                            st.write(f"Estoque: {v_est:,.2f}kg")
+                            st.write(f"Pedidos: {v_ped:,.2f}kg")
             
             except Exception as e:
                 st.error(f"Erro ao consolidar dados: {e}")
 
-if __name__ == "__main__":
-    main()
 if __name__ == "__main__":
     main()
