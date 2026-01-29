@@ -36,7 +36,7 @@ def main():
         st.title("🥩 Lançamento de Apuração")
         tipo_mp = st.selectbox("Tipo de Matéria-Prima:", ["Selecione", "Suíno"])
         if tipo_mp == "Suíno":
-            lista_mp = st.selectbox("Tipo de Matéria-Prima:", ["Selecione", "Carcaça","Costela","Pernil","Paleta","Garganta","Rabo","Pé","Mascara","Figado","Barriga"])
+            lista_mp = st.selectbox("Seleção de Matéria-Prima:", ["Selecione", "Carcaça","Costela","Pernil","Paleta","Garganta","Rabo","Pé","Mascara","Figado","Barriga"])
             if lista_mp == "Carcaça":
                 peso_carcaca = st.number_input("Peso Total da Carcaça (kg):", min_value=0.0, step=0.1, format="%.2f")
                 if peso_carcaca > 0:
@@ -55,6 +55,9 @@ def main():
                                 st.success("✅ Dados salvos com sucesso!")
                             except Exception as e:
                                 st.error(f"Erro ao salvar: {e}")
+            if lista_mp == "Costela":
+                peso_carcaca = st.number_input(f"Peso Total da {lista_mp} (kg):", min_value=0.0, step=0.1, format="%.2f")
+    
 
     # --- ABA: CONSULTAR HISTÓRICO ---
     elif menu == "Consultar Histórico e Totais":
