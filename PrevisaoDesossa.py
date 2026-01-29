@@ -36,23 +36,25 @@ def main():
         st.title("🥩 Lançamento de Apuração")
         tipo_mp = st.selectbox("Tipo de Matéria-Prima:", ["Selecione", "Suíno"])
         if tipo_mp == "Suíno":
-            peso_carcaca = st.number_input("Peso Total da Carcaça (kg):", min_value=0.0, step=0.1, format="%.2f")
-            if peso_carcaca > 0:
-                st.markdown("### 📊 Projeção de Cortes")
-                dados_projecao = [{"Corte": c, "Peso (kg)": round(peso_carcaca * p, 2)} for c, p in PERCENTUAIS_SUINO.items()]
-                st.table(pd.DataFrame(dados_projecao))
-                if st.button("Salvar no Google Drive"):
-                    gc = conectar_google_drive()
-                    if gc:
-                        try:
-                            sh = gc.open(PLANILHA_NOME).worksheet("Suinos")
-                            data_atual = pd.Timestamp.now().strftime("%d/%m/%Y")
-                            pesos = [round(peso_carcaca * p, 2) for p in PERCENTUAIS_SUINO.values()]
-                            linha_para_salvar = [data_atual, float(peso_carcaca)] + pesos
-                            sh.append_row(linha_para_salvar, value_input_option='RAW')
-                            st.success("✅ Dados salvos com sucesso!")
-                        except Exception as e:
-                            st.error(f"Erro ao salvar: {e}")
+            lista_mp = st.selectbox("Tipo de Matéria-Prima:", ["Selecione", "Carcaça","Costela","Pernil","Paleta","Garganta","Rabo","Pé","Mascara","Figado","Barriga"])
+            if lista_mp == "Carcaça":
+                peso_carcaca = st.number_input("Peso Total da Carcaça (kg):", min_value=0.0, step=0.1, format="%.2f")
+                if peso_carcaca > 0:
+                    st.markdown("### 📊 Projeção de Cortes")
+                    dados_projecao = [{"Corte": c, "Peso (kg)": round(peso_carcaca * p, 2)} for c, p in PERCENTUAIS_SUINO.items()]
+                    st.table(pd.DataFrame(dados_projecao))
+                    if st.button("Salvar no Google Drive"):
+                        gc = conectar_google_drive()
+                        if gc:
+                            try:
+                                sh = gc.open(PLANILHA_NOME).worksheet("Suinos")
+                                data_atual = pd.Timestamp.now().strftime("%d/%m/%Y")
+                                pesos = [round(peso_carcaca * p, 2) for p in PERCENTUAIS_SUINO.values()]
+                                linha_para_salvar = [data_atual, float(peso_carcaca)] + pesos
+                                sh.append_row(linha_para_salvar, value_input_option='RAW')
+                                st.success("✅ Dados salvos com sucesso!")
+                            except Exception as e:
+                                st.error(f"Erro ao salvar: {e}")
 
     # --- ABA: CONSULTAR HISTÓRICO ---
     elif menu == "Consultar Histórico e Totais":
