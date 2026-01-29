@@ -57,6 +57,23 @@ def main():
                                 st.error(f"Erro ao salvar: {e}")
             if lista_mp == "Costela":
                 peso_carcaca = st.number_input(f"Peso Total da {lista_mp} (kg):", min_value=0.0, step=0.1, format="%.2f")
+            if lista_mp == "Pernil":
+                peso_carcaca = st.number_input(f"Peso Total da {lista_mp} (kg):", min_value=0.0, step=0.1, format="%.2f")
+            if lista_mp == "Paleta":
+                peso_carcaca = st.number_input(f"Peso Total da {lista_mp} (kg):", min_value=0.0, step=0.1, format="%.2f")
+            if lista_mp == "Garganta":
+                peso_carcaca = st.number_input(f"Peso Total da {lista_mp} (kg):", min_value=0.0, step=0.1, format="%.2f")
+            if lista_mp == "Rabo":
+                peso_carcaca = st.number_input(f"Peso Total da {lista_mp} (kg):", min_value=0.0, step=0.1, format="%.2f")
+            if lista_mp == "Pé":
+                peso_carcaca = st.number_input(f"Peso Total da {lista_mp} (kg):", min_value=0.0, step=0.1, format="%.2f")
+            if lista_mp == "Mascara":
+                peso_carcaca = st.number_input(f"Peso Total da {lista_mp} (kg):", min_value=0.0, step=0.1, format="%.2f")
+            if lista_mp == "Figado":
+                peso_carcaca = st.number_input(f"Peso Total da {lista_mp} (kg):", min_value=0.0, step=0.1, format="%.2f")
+            if lista_mp == "Barriga":
+                peso_carcaca = st.number_input(f"Peso Total da {lista_mp} (kg):", min_value=0.0, step=0.1, format="%.2f")
+   
     
 
     # --- ABA: CONSULTAR HISTÓRICO ---
