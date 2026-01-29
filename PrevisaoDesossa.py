@@ -28,7 +28,7 @@ PERCENTUAIS_SUINO = {
 }
 
 def main():
-    st.set_page_config(page_title="Gestão de Desossa", layout="wide")
+    st.set_page_config(page_title="Gestão da Cadeia de Suprimentos", layout="wide")
     menu = st.sidebar.selectbox("Navegação", ["Lançar Desossa", "Consultar Histórico e Totais", "Saldo Disponível"])
 
     # --- ABA: LANÇAR DESOSSA ---
